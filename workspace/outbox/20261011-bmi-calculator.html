@@ -1,4 +1,4 @@
-<!-- handoff: 完成單檔繁體中文 BMI 計算機，含完整數值計算、體位判定、邊界與型態驗證、健康體重範圍試算與清除功能 / 需使用現代瀏覽器開啟 / 可以直接使用 -->
+<!-- handoff: 將主檔更新回退為 v2 版本單檔 BMI 計算機，採用 fieldset 卡片式排版、嚴格數值驗證與健康體重試算 / 支援現代瀏覽器離線開啟 / 可以直接使用 -->
 <!doctype html>
 <html lang="zh-TW">
 <head>
@@ -32,15 +32,29 @@
     font-size: 1.5rem;
     margin: 8px 0 16px;
   }
+  fieldset {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin: 0 0 16px;
+    padding: 12px 16px 16px;
+  }
+  legend {
+    font-weight: 700;
+    padding: 0 6px;
+    color: var(--ink);
+  }
   .form-group {
-    margin-bottom: 14px;
+    margin-top: 10px;
+  }
+  .form-group:first-of-type {
+    margin-top: 4px;
   }
   label {
     display: block;
-    font-weight: 700;
+    font-weight: 600;
     margin-bottom: 6px;
   }
-  input[type="number"] {
+  input[type="text"] {
     width: 100%;
     padding: 8px 12px;
     font-size: 1rem;
@@ -50,7 +64,7 @@
     background: #fff;
     color: var(--ink);
   }
-  input[type="number"]:focus {
+  input[type="text"]:focus {
     outline: 2px solid var(--sea);
     border-color: var(--sea);
   }
@@ -78,8 +92,8 @@
     border: 2px solid var(--sea);
     border-radius: 10px;
     padding: 14px 16px;
+    min-height: 3em;
     background: var(--wash);
-    margin-top: 16px;
   }
   #result-box.error {
     border-color: var(--coral);
@@ -101,6 +115,9 @@
     color: var(--muted);
     margin-top: 6px;
   }
+  .empty {
+    color: var(--muted);
+  }
   .disclaimer {
     font-size: 0.85rem;
     color: var(--muted);
@@ -114,22 +131,27 @@
 <main>
   <h1>BMI 計算機</h1>
 
-  <div class="form-group">
-    <label for="height">身高（公分）</label>
-    <input type="number" id="height" step="any" placeholder="例如：170">
-  </div>
+  <fieldset>
+    <legend>身體數值輸入</legend>
+    <div class="form-group">
+      <label for="height">身高（公分）</label>
+      <input type="text" id="height" inputmode="decimal" placeholder="例如：170">
+    </div>
 
-  <div class="form-group">
-    <label for="weight">體重（公斤）</label>
-    <input type="number" id="weight" step="any" placeholder="例如：65">
-  </div>
+    <div class="form-group">
+      <label for="weight">體重（公斤）</label>
+      <input type="text" id="weight" inputmode="decimal" placeholder="例如：65">
+    </div>
+  </fieldset>
 
   <div class="row">
     <button type="button" class="primary" id="calculate">計算</button>
     <button type="button" id="clear">清除</button>
   </div>
 
-  <div id="result-box" style="display: none;" aria-live="polite"></div>
+  <div id="result-box" aria-live="polite">
+    <span class="empty" id="hint">請輸入身高與體重後，按「計算」。</span>
+  </div>
 
   <p class="disclaimer">本工具僅供參考，不能取代專業醫療建議。</p>
 </main>
@@ -155,19 +177,19 @@
     var height = Number(heightRaw);
     var weight = Number(weightRaw);
 
-    // 檢查是否為正確數字且在指定範圍內
+    // 檢查是否為合法數字且在有效範圍內（50–300 cm, 10–300 kg）
     if (isNaN(height) || isNaN(weight) || height < 50 || height > 300 || weight < 10 || weight > 300) {
       showError("請輸入正確的數字（50–300 公分的身高、10–300 公斤的體重）。");
       return;
     }
 
-    // 計算 BMI = 體重(kg) / 身高(m)^2
+    // 計算公式：BMI = 體重(kg) ÷ 身高(m)²，取小數點後 1 位
     var heightM = height / 100;
     var rawBmi = weight / (heightM * heightM);
     var bmiStr = rawBmi.toFixed(1);
     var bmiVal = parseFloat(bmiStr);
 
-    // 體位判定（WHO 切點）
+    // WHO 體位標準判定
     var category = "";
     if (bmiVal < 18.5) {
       category = "過輕";
@@ -184,7 +206,6 @@
     var maxHealthy = (24.9 * heightM * heightM).toFixed(1);
 
     resultBox.className = "";
-    resultBox.style.display = "block";
     resultBox.innerHTML =
       '<div class="bmi-val">您的 BMI 為 ' + bmiStr + '</div>' +
       '<div class="bmi-cat">體位：' + category + '</div>' +
@@ -193,7 +214,6 @@
 
   function showError(msg) {
     resultBox.className = "error";
-    resultBox.style.display = "block";
     resultBox.textContent = msg;
   }
 
@@ -201,14 +221,12 @@
     heightInput.value = "";
     weightInput.value = "";
     resultBox.className = "";
-    resultBox.style.display = "none";
-    resultBox.textContent = "";
+    resultBox.innerHTML = '<span class="empty">請輸入身高與體重後，按「計算」。</span>';
   }
 
   calcBtn.addEventListener("click", calculateBMI);
   clearBtn.addEventListener("click", clearForm);
 
-  // 支援 Enter 鍵送出計算
   heightInput.addEventListener("keydown", function (e) {
     if (e.key === "Enter") calculateBMI();
   });

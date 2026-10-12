@@ -1,0 +1,632 @@
+<!-- handoff: 完成 v4（於 auto mode 由領隊自行實作）：新增 WHO 體位對照表與當前體位高亮、增減重提示、本次紀錄（記憶體內、可點擊套用）、複製結果與清除紀錄，並保留 v3 全部雙語行為與驗證規則 / 單檔離線、無儲存無網路，v3 檔案未更動 / 可以直接使用 -->
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BMI 計算機</title>
+<style>
+  :root {
+    --ink: #16343b;
+    --muted: #526b70;
+    --sea: #087e8b;
+    --coral: #e76f51;
+    --line: #cbded9;
+    --paper: #fffdf8;
+    --wash: #edf7f3;
+    --blue: #2b5f86;
+    --blue-bg: #e4eef6;
+    --amber: #8a5a06;
+    --amber-bg: #fdf0dc;
+    --sea-bg: #dff0ec;
+    --coral-bg: #fdf0ec;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    line-height: 1.5;
+  }
+  main { max-width: 640px; margin: 0 auto; padding: 16px; }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  h1 { font-size: 1.5rem; margin: 8px 0; }
+  #js-warning {
+    background: var(--coral-bg);
+    border: 1px solid var(--coral);
+    color: var(--coral);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  html.js #js-warning { display: none; }
+  fieldset {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin: 0 0 16px;
+    padding: 12px 16px 16px;
+  }
+  legend { font-weight: 700; padding: 0 6px; color: var(--ink); }
+  .form-group { margin-top: 10px; }
+  .form-group:first-of-type { margin-top: 4px; }
+  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  input[type="text"] {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+  }
+  input[type="text"]:focus { outline: 2px solid var(--sea); border-color: var(--sea); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 8px; align-items: center; }
+  button {
+    font: inherit;
+    border-radius: 8px;
+    border: 1px solid var(--sea);
+    background: #fff;
+    color: var(--sea);
+    padding: 8px 18px;
+    cursor: pointer;
+  }
+  button.primary { background: var(--sea); color: #fff; font-weight: 700; }
+  button:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    border-color: var(--line);
+    color: var(--muted);
+    background: #f4f4f1;
+  }
+  .feedback { color: var(--sea); font-weight: 700; font-size: .9rem; }
+  .feedback.fail { color: var(--coral); }
+  #result-box {
+    border: 2px solid var(--sea);
+    border-radius: 10px;
+    padding: 14px 16px;
+    min-height: 3em;
+    background: var(--wash);
+    margin-top: 8px;
+  }
+  #result-box.error {
+    border-color: var(--coral);
+    background: var(--coral-bg);
+    color: var(--coral);
+    font-weight: 700;
+  }
+  .bmi-val { font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; }
+  .badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-weight: 700;
+    font-size: .95rem;
+  }
+  .b-underweight { background: var(--blue-bg); color: var(--blue); }
+  .b-normal { background: var(--sea-bg); color: var(--sea); }
+  .b-overweight { background: var(--amber-bg); color: var(--amber); }
+  .b-obese { background: var(--coral-bg); color: var(--coral); }
+  .healthy-range, .delta { font-size: .95rem; color: var(--muted); margin-top: 6px; }
+  .delta { color: var(--ink); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-size: .85rem; text-transform: none; }
+  tr.active td { background: var(--wash); font-weight: 700; }
+  tr.active td:first-child { box-shadow: inset 3px 0 0 var(--sea); }
+  .hist-tools { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+  #history-list { list-style: none; margin: 0; padding: 0; }
+  #history-list li { margin: 4px 0; }
+  button.hist-row {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: .95rem;
+  }
+  button.hist-row:hover { border-color: var(--sea); background: var(--wash); }
+  .empty { color: var(--muted); }
+  .disclaimer {
+    font-size: .85rem;
+    color: var(--muted);
+    margin-top: 20px;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+  @media (max-width: 480px) {
+    th, td { padding: 6px 6px; font-size: .9rem; }
+    button { padding: 8px 14px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div id="js-warning" role="alert">此頁面需要啟用 JavaScript 才能計算。</div>
+
+  <header>
+    <h1 id="t-title">BMI 計算機</h1>
+    <button type="button" id="lang-btn">English</button>
+  </header>
+
+  <fieldset>
+    <legend id="t-legend">身體數值輸入</legend>
+    <div class="form-group">
+      <label for="height" id="t-label-height">身高（公分）</label>
+      <input type="text" id="height" inputmode="decimal" placeholder="例如：170" autofocus>
+    </div>
+    <div class="form-group">
+      <label for="weight" id="t-label-weight">體重（公斤）</label>
+      <input type="text" id="weight" inputmode="decimal" placeholder="例如：65">
+    </div>
+  </fieldset>
+
+  <div class="row">
+    <button type="button" class="primary" id="calculate">計算</button>
+    <button type="button" id="clear">清除</button>
+    <button type="button" id="copy" disabled>複製結果</button>
+    <span id="copy-feedback" class="feedback" aria-live="polite"></span>
+  </div>
+
+  <div id="result-box" aria-live="polite">
+    <span class="empty" id="hint">請輸入身高與體重後，按「計算」。</span>
+  </div>
+
+  <fieldset>
+    <legend id="t-table-legend">體位對照表（WHO）</legend>
+    <table>
+      <thead>
+        <tr>
+          <th id="th-range">BMI 範圍</th>
+          <th id="th-cat">體位</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr data-cat="underweight">
+          <td id="r-uw">18.5 以下</td>
+          <td id="c-uw">過輕</td>
+        </tr>
+        <tr data-cat="normal">
+          <td id="r-n">18.5 – 24.9</td>
+          <td id="c-n">正常</td>
+        </tr>
+        <tr data-cat="overweight">
+          <td id="r-ow">25.0 – 29.9</td>
+          <td id="c-ow">過重</td>
+        </tr>
+        <tr data-cat="obese">
+          <td id="r-ob">30.0 以上</td>
+          <td id="c-ob">肥胖</td>
+        </tr>
+      </tbody>
+    </table>
+  </fieldset>
+
+  <fieldset>
+    <legend id="t-hist-legend">本次紀錄（僅保留在瀏覽器記憶體）</legend>
+    <div class="hist-tools">
+      <button type="button" id="clear-history" disabled>清除紀錄</button>
+    </div>
+    <ul id="history-list"></ul>
+    <div class="empty" id="hist-empty">尚無紀錄。</div>
+  </fieldset>
+
+  <p class="disclaimer" id="t-disclaimer">本工具僅供參考，不能取代專業醫療建議。</p>
+</main>
+
+<script>
+document.documentElement.className = "js";
+
+(function () {
+  var TEXT = {
+    "zh-TW": {
+      htmlLang: "zh-TW",
+      title: "BMI 計算機",
+      toggleBtn: "English",
+      legend: "身體數值輸入",
+      heightLabel: "身高（公分）",
+      weightLabel: "體重（公斤）",
+      phHeight: "例如：170",
+      phWeight: "例如：65",
+      calcBtn: "計算",
+      clearBtn: "清除",
+      copyBtn: "複製結果",
+      copied: "已複製",
+      copyFail: "複製失敗，請手動選取文字。",
+      hint: "請輸入身高與體重後，按「計算」。",
+      disclaimer: "本工具僅供參考，不能取代專業醫療建議。",
+      tableLegend: "體位對照表（WHO）",
+      thRange: "BMI 範圍",
+      thCat: "體位",
+      ranges: { uw: "18.5 以下", n: "18.5 – 24.9", ow: "25.0 – 29.9", ob: "30.0 以上" },
+      cat: { underweight: "過輕", normal: "正常", overweight: "過重", obese: "肥胖" },
+      histLegend: "本次紀錄（僅保留在瀏覽器記憶體）",
+      histEmpty: "尚無紀錄。",
+      clearHist: "清除紀錄",
+      reuse: "套用這組數值",
+      noJs: "此頁面需要啟用 JavaScript 才能計算。",
+      resultFormat: function (v) { return "您的 BMI 為 " + v; },
+      catFormat: function (k) { return "體位：" + this.cat[k]; },
+      healthyRange: function (min, max) {
+        return "此身高的健康體重範圍：" + min + " ～ " + max + " 公斤";
+      },
+      deltaGain: function (x) { return "需增加約 " + x + " 公斤，才能到達正常體重範圍。"; },
+      deltaLose: function (x) { return "需減少約 " + x + " 公斤，才能到達正常體重範圍。"; },
+      deltaIn: "已在正常體重範圍內。",
+      errEmpty: "請輸入身高與體重。",
+      errInvalid: "請輸入正確的數字（50–300 公分的身高、10–300 公斤的體重）。",
+      histRow: function (o) {
+        return o.time + "｜" + o.h + " cm｜" + o.w + " kg｜BMI " + o.bmi + "｜" + this.cat[o.cat];
+      },
+      copySummary: function (o) {
+        return "BMI 計算機｜" + o.h + " cm・" + o.w + " kg・BMI " + o.bmi + "・" + this.cat[o.cat];
+      }
+    },
+    "en": {
+      htmlLang: "en",
+      title: "BMI Calculator",
+      toggleBtn: "中文",
+      legend: "Body Measurements",
+      heightLabel: "Height (cm)",
+      weightLabel: "Weight (kg)",
+      phHeight: "e.g. 170",
+      phWeight: "e.g. 65",
+      calcBtn: "Calculate",
+      clearBtn: "Clear",
+      copyBtn: "Copy result",
+      copied: "Copied",
+      copyFail: "Copy failed — please select the text manually.",
+      hint: 'Enter your height and weight, then press "Calculate".',
+      disclaimer: "This tool is for reference only and is not a substitute for professional medical advice.",
+      tableLegend: "BMI categories (WHO)",
+      thRange: "BMI range",
+      thCat: "Category",
+      ranges: { uw: "Below 18.5", n: "18.5 – 24.9", ow: "25.0 – 29.9", ob: "30.0 and above" },
+      cat: { underweight: "Underweight", normal: "Normal", overweight: "Overweight", obese: "Obese" },
+      histLegend: "This session (kept in memory only)",
+      histEmpty: "No entries yet.",
+      clearHist: "Clear history",
+      reuse: "Reuse these values",
+      noJs: "This page needs JavaScript enabled to calculate.",
+      resultFormat: function (v) { return "Your BMI is " + v; },
+      catFormat: function (k) { return "Category: " + this.cat[k]; },
+      healthyRange: function (min, max) {
+        return "Healthy weight range for this height: " + min + " – " + max + " kg";
+      },
+      deltaGain: function (x) { return "Gain about " + x + " kg to reach the normal weight range."; },
+      deltaLose: function (x) { return "Lose about " + x + " kg to reach the normal weight range."; },
+      deltaIn: "You are within the normal weight range.",
+      errEmpty: "Please enter your height and weight.",
+      errInvalid: "Please enter valid numbers (height 50–300 cm, weight 10–300 kg).",
+      histRow: function (o) {
+        return o.time + " · " + o.h + " cm · " + o.w + " kg · BMI " + o.bmi + " · " + this.cat[o.cat];
+      },
+      copySummary: function (o) {
+        return "BMI Calculator | " + o.h + " cm · " + o.w + " kg · BMI " + o.bmi + " · " + this.cat[o.cat];
+      }
+    }
+  };
+
+  var currentLang = "zh-TW";
+  var history = [];
+  var state = {
+    type: "init",
+    errorType: null,
+    resultData: null,
+    feedback: null
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var heightInput = $("height");
+  var weightInput = $("weight");
+  var calcBtn = $("calculate");
+  var clearBtn = $("clear");
+  var copyBtn = $("copy");
+  var langBtn = $("lang-btn");
+  var resultBox = $("result-box");
+  var historyList = $("history-list");
+  var histEmpty = $("hist-empty");
+  var clearHistBtn = $("clear-history");
+  var feedbackEl = $("copy-feedback");
+
+  function t() { return TEXT[currentLang]; }
+
+  function applyLanguage() {
+    var L = t();
+    document.documentElement.lang = L.htmlLang;
+    document.title = L.title;
+    $("t-title").textContent = L.title;
+    langBtn.textContent = L.toggleBtn;
+    $("t-legend").textContent = L.legend;
+    $("t-label-height").textContent = L.heightLabel;
+    $("t-label-weight").textContent = L.weightLabel;
+    heightInput.placeholder = L.phHeight;
+    weightInput.placeholder = L.phWeight;
+    calcBtn.textContent = L.calcBtn;
+    clearBtn.textContent = L.clearBtn;
+    copyBtn.textContent = L.copyBtn;
+    $("t-disclaimer").textContent = L.disclaimer;
+    $("t-table-legend").textContent = L.tableLegend;
+    $("th-range").textContent = L.thRange;
+    $("th-cat").textContent = L.thCat;
+    $("r-uw").textContent = L.ranges.uw;
+    $("r-n").textContent = L.ranges.n;
+    $("r-ow").textContent = L.ranges.ow;
+    $("r-ob").textContent = L.ranges.ob;
+    $("c-uw").textContent = L.cat.underweight;
+    $("c-n").textContent = L.cat.normal;
+    $("c-ow").textContent = L.cat.overweight;
+    $("c-ob").textContent = L.cat.obese;
+    $("t-hist-legend").textContent = L.histLegend;
+    clearHistBtn.textContent = L.clearHist;
+    $("js-warning").textContent = L.noJs;
+    renderResult();
+    renderTable();
+    renderHistory();
+  }
+
+  function renderResult() {
+    var L = t();
+    if (state.feedback === "copied") {
+      feedbackEl.textContent = L.copied;
+      feedbackEl.className = "feedback";
+    } else if (state.feedback === "fail") {
+      feedbackEl.textContent = L.copyFail;
+      feedbackEl.className = "feedback fail";
+    } else {
+      feedbackEl.textContent = "";
+      feedbackEl.className = "feedback";
+    }
+
+    if (state.type === "init") {
+      resultBox.className = "";
+      resultBox.innerHTML = '<span class="empty">' + L.hint + "</span>";
+      copyBtn.disabled = true;
+      return;
+    }
+    if (state.type === "error") {
+      resultBox.className = "error";
+      resultBox.textContent = state.errorType === "empty" ? L.errEmpty : L.errInvalid;
+      copyBtn.disabled = true;
+      return;
+    }
+    var d = state.resultData;
+    var deltaHtml = "";
+    if (d.deltaDir === "gain") {
+      deltaHtml = '<div class="delta">' + L.deltaGain(d.deltaKg) + "</div>";
+    } else if (d.deltaDir === "lose") {
+      deltaHtml = '<div class="delta">' + L.deltaLose(d.deltaKg) + "</div>";
+    } else {
+      deltaHtml = '<div class="delta">' + L.deltaIn + "</div>";
+    }
+    resultBox.className = "";
+    resultBox.innerHTML =
+      '<div class="bmi-val">' + L.resultFormat(d.bmiStr) + "</div>" +
+      '<div class="bmi-cat"><span class="badge b-' + d.categoryKey + '">' +
+        L.catFormat(d.categoryKey) + "</span></div>" +
+      '<div class="healthy-range">' + L.healthyRange(d.minHealthy, d.maxHealthy) + "</div>" +
+      deltaHtml;
+    copyBtn.disabled = false;
+  }
+
+  function renderTable() {
+    var active = state.type === "result" ? state.resultData.categoryKey : null;
+    var rows = document.querySelectorAll("tr[data-cat]");
+    for (var i = 0; i < rows.length; i++) {
+      var isActive = rows[i].getAttribute("data-cat") === active;
+      if (isActive) {
+        rows[i].className = "active";
+      } else {
+        rows[i].className = "";
+      }
+    }
+  }
+
+  function renderHistory() {
+    var L = t();
+    historyList.innerHTML = "";
+    for (var i = 0; i < history.length; i++) {
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "hist-row";
+      btn.setAttribute("data-i", String(i));
+      btn.title = L.reuse;
+      btn.textContent = L.histRow(history[i]);
+      li.appendChild(btn);
+      historyList.appendChild(li);
+    }
+    histEmpty.style.display = history.length ? "none" : "block";
+    clearHistBtn.disabled = history.length === 0;
+  }
+
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+
+  function calculateBMI() {
+    var heightRaw = heightInput.value.trim();
+    var weightRaw = weightInput.value.trim();
+
+    if (heightRaw === "" || weightRaw === "") {
+      state = { type: "error", errorType: "empty", resultData: null, feedback: null };
+      renderResult();
+      renderTable();
+      return;
+    }
+
+    var height = Number(heightRaw);
+    var weight = Number(weightRaw);
+
+    if (isNaN(height) || isNaN(weight) || height < 50 || height > 300 || weight < 10 || weight > 300) {
+      state = { type: "error", errorType: "invalid", resultData: null, feedback: null };
+      renderResult();
+      renderTable();
+      return;
+    }
+
+    var heightM = height / 100;
+    var rawBmi = weight / (heightM * heightM);
+    var bmiStr = rawBmi.toFixed(1);
+    var bmiVal = parseFloat(bmiStr);
+
+    var categoryKey;
+    if (bmiVal < 18.5) {
+      categoryKey = "underweight";
+    } else if (bmiVal <= 24.9) {
+      categoryKey = "normal";
+    } else if (bmiVal <= 29.9) {
+      categoryKey = "overweight";
+    } else {
+      categoryKey = "obese";
+    }
+
+    var minHealthy = (18.5 * heightM * heightM).toFixed(1);
+    var maxHealthy = (24.9 * heightM * heightM).toFixed(1);
+
+    var deltaDir, deltaKg = "";
+    if (categoryKey === "underweight") {
+      deltaKg = (18.5 * heightM * heightM - weight).toFixed(1);
+      deltaDir = parseFloat(deltaKg) > 0 ? "gain" : "in";
+    } else if (categoryKey === "normal") {
+      deltaDir = "in";
+    } else {
+      deltaKg = (weight - 24.9 * heightM * heightM).toFixed(1);
+      deltaDir = parseFloat(deltaKg) > 0 ? "lose" : "in";
+    }
+
+    var now = new Date();
+    history.unshift({
+      time: pad2(now.getHours()) + ":" + pad2(now.getMinutes()),
+      h: String(height),
+      w: String(weight),
+      bmi: bmiStr,
+      cat: categoryKey
+    });
+    if (history.length > 10) history.pop();
+
+    state = {
+      type: "result",
+      errorType: null,
+      resultData: {
+        heightCm: String(height),
+        weightKg: String(weight),
+        bmiStr: bmiStr,
+        categoryKey: categoryKey,
+        minHealthy: minHealthy,
+        maxHealthy: maxHealthy,
+        deltaDir: deltaDir,
+        deltaKg: deltaKg
+      },
+      feedback: null
+    };
+    renderResult();
+    renderTable();
+    renderHistory();
+  }
+
+  function clearForm() {
+    heightInput.value = "";
+    weightInput.value = "";
+    state = { type: "init", errorType: null, resultData: null, feedback: null };
+    renderResult();
+    renderTable();
+  }
+
+  function clearHistory() {
+    history = [];
+    renderHistory();
+  }
+
+  function feedback(kind) {
+    state.feedback = kind;
+    renderResult();
+    if (kind === "copied") {
+      setTimeout(function () {
+        if (state.feedback === "copied") {
+          state.feedback = null;
+          renderResult();
+        }
+      }, 2000);
+    }
+  }
+
+  function copyFallback(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function copyResult() {
+    if (state.type !== "result") return;
+    var text = t().copySummary({
+      h: state.resultData.heightCm,
+      w: state.resultData.weightKg,
+      bmi: state.resultData.bmiStr,
+      cat: state.resultData.categoryKey
+    });
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () { feedback("copied"); },
+        function () { feedback(copyFallback(text) ? "copied" : "fail"); }
+      );
+    } else {
+      feedback(copyFallback(text) ? "copied" : "fail");
+    }
+  }
+
+  function toggleLanguage() {
+    currentLang = currentLang === "zh-TW" ? "en" : "zh-TW";
+    applyLanguage();
+  }
+
+  historyList.addEventListener("click", function (e) {
+    var el = e.target;
+    while (el && el !== historyList && !(el.className && el.className.indexOf("hist-row") !== -1)) {
+      el = el.parentNode;
+    }
+    if (!el || el === historyList) return;
+    var i = Number(el.getAttribute("data-i"));
+    var item = history[i];
+    if (!item) return;
+    heightInput.value = item.h;
+    weightInput.value = item.w;
+    calculateBMI();
+  });
+
+  calcBtn.addEventListener("click", calculateBMI);
+  clearBtn.addEventListener("click", clearForm);
+  copyBtn.addEventListener("click", copyResult);
+  clearHistBtn.addEventListener("click", clearHistory);
+  langBtn.addEventListener("click", toggleLanguage);
+
+  heightInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") calculateBMI();
+  });
+  weightInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") calculateBMI();
+  });
+
+  applyLanguage();
+})();
+</script>
+</body>
+</html>

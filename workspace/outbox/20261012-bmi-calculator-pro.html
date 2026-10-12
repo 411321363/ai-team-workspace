@@ -1,0 +1,642 @@
+<!-- handoff: 完成專業升級版 BMI 計算機 (pro)，新增視覺化 BMI 體位光譜進度條、目標體重差距分析、每日建議飲水量試算、客製化生活行動建議、一鍵複製與列印報表功能，並支援雙語切換 / 支援現代瀏覽器離線開啟 / 可以直接使用 -->
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BMI 專業健康計算機</title>
+<style>
+  :root {
+    --ink: #16343b;
+    --muted: #526b70;
+    --sea: #087e8b;
+    --sea-dark: #065b64;
+    --coral: #e76f51;
+    --amber: #e9c46a;
+    --mint: #2a9d8f;
+    --line: #cbded9;
+    --paper: #fffdf8;
+    --wash: #edf7f3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    line-height: 1.5;
+  }
+  main {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin: 8px 0;
+  }
+  .presets {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .preset-btn {
+    font-size: 0.85rem;
+    padding: 4px 10px;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .preset-btn:hover {
+    border-color: var(--sea);
+    color: var(--sea);
+  }
+  fieldset {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin: 0 0 16px;
+    padding: 12px 16px 16px;
+    background: #fff;
+  }
+  legend {
+    font-weight: 700;
+    padding: 0 6px;
+    color: var(--ink);
+  }
+  .form-group {
+    margin-top: 10px;
+  }
+  .form-group:first-of-type {
+    margin-top: 4px;
+  }
+  label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  input[type="text"] {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  input[type="text"]:focus {
+    outline: 2px solid var(--sea);
+    border-color: var(--sea);
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+  }
+  button {
+    font: inherit;
+    border-radius: 8px;
+    border: 1px solid var(--sea);
+    background: #fff;
+    color: var(--sea);
+    padding: 8px 18px;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+  }
+  button:hover {
+    background: var(--wash);
+  }
+  button.primary {
+    background: var(--sea);
+    color: #fff;
+    font-weight: 700;
+  }
+  button.primary:hover {
+    background: var(--sea-dark);
+  }
+  #result-box {
+    border: 2px solid var(--sea);
+    border-radius: 10px;
+    padding: 16px;
+    min-height: 3.5em;
+    background: var(--wash);
+    margin-bottom: 16px;
+  }
+  #result-box.error {
+    border-color: var(--coral);
+    background: #fdf0ec;
+    color: var(--coral);
+    font-weight: 700;
+  }
+  .bmi-val {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .bmi-cat {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  /* BMI Spectrum Bar */
+  .spectrum-wrap {
+    margin: 16px 0 10px;
+  }
+  .spectrum-bar {
+    height: 14px;
+    border-radius: 7px;
+    background: linear-gradient(to right, #48cae4 0%, #48cae4 22%, #52b788 22%, #52b788 47%, #f4a261 47%, #f4a261 72%, #e76f51 72%, #e76f51 100%);
+    position: relative;
+  }
+  .spectrum-pointer {
+    position: absolute;
+    top: -6px;
+    width: 4px;
+    height: 26px;
+    background: #111;
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(0,0,0,0.4);
+    transform: translateX(-50%);
+    transition: left 0.3s ease-out;
+  }
+  .spectrum-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  /* Detail Cards */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 14px 0;
+  }
+  @media (max-width: 540px) {
+    .cards-grid { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .card-title {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .card-val {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .action-tip {
+    background: #fff;
+    border-left: 4px solid var(--sea);
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin: 12px 0 6px;
+    font-size: 0.95rem;
+  }
+  .action-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .action-row button {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+  }
+  .toast {
+    font-size: 0.85rem;
+    color: var(--sea);
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .toast.show {
+    opacity: 1;
+  }
+  .empty {
+    color: var(--muted);
+  }
+  .disclaimer {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 24px;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+  @media print {
+    header button, .presets, .row, .action-row { display: none !important; }
+    #result-box { border: 1px solid #333; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="t-title">BMI 專業健康計算機</h1>
+    <button type="button" id="lang-btn">English</button>
+  </header>
+
+  <div class="presets">
+    <button type="button" class="preset-btn" data-h="170" data-w="65" id="p1">範例：標準體態 (170cm, 65kg)</button>
+    <button type="button" class="preset-btn" data-h="160" data-w="40" id="p2">範例：過輕體態 (160cm, 40kg)</button>
+    <button type="button" class="preset-btn" data-h="180" data-w="90" id="p3">範例：過重體態 (180cm, 90kg)</button>
+    <button type="button" class="preset-btn" data-h="165" data-w="100" id="p4">範例：肥胖體態 (165cm, 100kg)</button>
+  </div>
+
+  <fieldset>
+    <legend id="t-legend">身體數值輸入</legend>
+    <div class="form-group">
+      <label for="height" id="t-label-height">身高（公分）</label>
+      <input type="text" id="height" inputmode="decimal" placeholder="例如：170">
+    </div>
+
+    <div class="form-group">
+      <label for="weight" id="t-label-weight">體重（公斤）</label>
+      <input type="text" id="weight" inputmode="decimal" placeholder="例如：65">
+    </div>
+  </fieldset>
+
+  <div class="row">
+    <button type="button" class="primary" id="calculate">計算</button>
+    <button type="button" id="clear">清除</button>
+  </div>
+
+  <div id="result-box" aria-live="polite">
+    <span class="empty" id="hint">請輸入身高與體重後，按「計算」。</span>
+  </div>
+
+  <p class="disclaimer" id="t-disclaimer">本工具僅供參考，不能取代專業醫療建議。</p>
+</main>
+
+<script>
+(function () {
+  var TEXT = {
+    "zh-TW": {
+      htmlLang: "zh-TW",
+      title: "BMI 專業健康計算機",
+      toggleBtn: "English",
+      legend: "身體數值輸入",
+      heightLabel: "身高（公分）",
+      weightLabel: "體重（公斤）",
+      phHeight: "例如：170",
+      phWeight: "例如：65",
+      calcBtn: "計算",
+      clearBtn: "清除",
+      copyBtn: "複製分析結果",
+      printBtn: "列印報表",
+      copiedNotice: "已複製至剪貼簿！",
+      presets: [
+        "範例：標準體態 (170cm, 65kg)",
+        "範例：過輕體態 (160cm, 40kg)",
+        "範例：過重體態 (180cm, 90kg)",
+        "範例：肥胖體態 (165cm, 100kg)"
+      ],
+      resultFormat: function (val) { return "您的 BMI 為 " + val; },
+      catFormat: function (catKey) {
+        var map = {
+          underweight: "體位：過輕",
+          normal: "體位：正常",
+          overweight: "體位：過重",
+          obese: "體位：肥胖"
+        };
+        return map[catKey];
+      },
+      healthyRangeTitle: "此身高健康體重範圍",
+      healthyRangeFormat: function (min, max) { return min + " ～ " + max + " 公斤"; },
+      targetWeightTitle: "目標體重差距分析",
+      targetUnder: function (diff) { return "建議增重約 " + diff + " 公斤以達正常下限"; },
+      targetNormal: "維持良好！體重目前處於正常理想範圍內",
+      targetOver: function (diff) { return "建議減重約 " + diff + " 公斤以回歸正常上限"; },
+      waterTitle: "每日建議基礎飲水量",
+      waterFormat: function (min, max) { return min + " ～ " + max + " 毫升 (mL)"; },
+      tipsTitle: "專屬健康行動建議",
+      tips: {
+        underweight: "健康建議：熱量攝取可能不足。建議適量補充優質蛋白質（蛋豆魚肉類）及好油脂，並搭配肌力阻力訓練增肌。",
+        normal: "健康建議：體態非常理想！請持續維持規律運動（每週至少 150 分鐘中度運動）與低糖高纖均衡飲食習慣。",
+        overweight: "健康建議：已達過重門檻。建議減少精製糖與加工食品攝取，每日以原型食物為主，並循序漸進增加有氧運動。",
+        obese: "健康建議：體重已達肥胖範圍，心血管負擔較大。建議先從每日快走30分鐘、控制熱量赤字開始，並諮詢家醫科或營養師專業指導。"
+      },
+      spectrumLabels: ["過輕 (<18.5)", "正常 (18.5-24.9)", "過重 (25-29.9)", "肥胖 (≥30)"],
+      errEmpty: "請輸入身高與體重。",
+      errInvalid: "請輸入正確的數字（50–300 公分的身高、10–300 公斤的體重）。",
+      hint: "請輸入身高與體重後，按「計算」。",
+      disclaimer: "本工具僅供參考，不能取代專業醫療建議。"
+    },
+    "en": {
+      htmlLang: "en",
+      title: "BMI Health Pro Calculator",
+      toggleBtn: "中文",
+      legend: "Body Measurements",
+      heightLabel: "Height (cm)",
+      weightLabel: "Weight (kg)",
+      phHeight: "e.g. 170",
+      phWeight: "e.g. 65",
+      calcBtn: "Calculate",
+      clearBtn: "Clear",
+      copyBtn: "Copy Summary",
+      printBtn: "Print Report",
+      copiedNotice: "Copied to clipboard!",
+      presets: [
+        "Normal (170cm, 65kg)",
+        "Underweight (160cm, 40kg)",
+        "Overweight (180cm, 90kg)",
+        "Obese (165cm, 100kg)"
+      ],
+      resultFormat: function (val) { return "Your BMI is " + val; },
+      catFormat: function (catKey) {
+        var map = {
+          underweight: "Category: Underweight",
+          normal: "Category: Normal",
+          overweight: "Category: Overweight",
+          obese: "Category: Obese"
+        };
+        return map[catKey];
+      },
+      healthyRangeTitle: "Healthy Weight Range",
+      healthyRangeFormat: function (min, max) { return min + " – " + max + " kg"; },
+      targetWeightTitle: "Weight Goal Analysis",
+      targetUnder: function (diff) { return "Gain ~" + diff + " kg to reach healthy minimum"; },
+      targetNormal: "Great job! Your weight is in the healthy zone",
+      targetOver: function (diff) { return "Lose ~" + diff + " kg to reach healthy maximum"; },
+      waterTitle: "Daily Water Intake Goal",
+      waterFormat: function (min, max) { return min + " – " + max + " mL"; },
+      tipsTitle: "Actionable Health Tips",
+      tips: {
+        underweight: "Tip: Energy intake might be insufficient. Focus on protein-rich whole foods, healthy fats, and resistance training to build muscle.",
+        normal: "Tip: Excellent condition! Maintain balanced nutrition and at least 150 minutes of moderate physical activity per week.",
+        overweight: "Tip: You are near or in overweight range. Cut back on sugary drinks and ultra-processed foods, and gradually increase aerobic activities.",
+        obese: "Tip: Weight has reached obese threshold. Consider starting with 30-min brisk walks, mindful caloric control, and consulting a healthcare professional."
+      },
+      spectrumLabels: ["Underweight (<18.5)", "Normal (18.5-24.9)", "Overweight (25-29.9)", "Obese (≥30)"],
+      errEmpty: "Please enter your height and weight.",
+      errInvalid: "Please enter valid numbers (height 50–300 cm, weight 10–300 kg).",
+      hint: 'Enter your height and weight, then press "Calculate".',
+      disclaimer: "This tool is for reference only and is not a substitute for professional medical advice."
+    }
+  };
+
+  var currentLang = "zh-TW";
+  var state = {
+    type: "init",
+    errorType: null,
+    resultData: null
+  };
+
+  var heightInput = document.getElementById("height");
+  var weightInput = document.getElementById("weight");
+  var calcBtn = document.getElementById("calculate");
+  var clearBtn = document.getElementById("clear");
+  var langBtn = document.getElementById("lang-btn");
+  var resultBox = document.getElementById("result-box");
+
+  function applyLanguage() {
+    var t = TEXT[currentLang];
+    document.documentElement.lang = t.htmlLang;
+    document.title = t.title;
+    document.getElementById("t-title").textContent = t.title;
+    langBtn.textContent = t.toggleBtn;
+    document.getElementById("t-legend").textContent = t.legend;
+    document.getElementById("t-label-height").textContent = t.heightLabel;
+    document.getElementById("t-label-weight").textContent = t.weightLabel;
+    heightInput.placeholder = t.phHeight;
+    weightInput.placeholder = t.phWeight;
+    calcBtn.textContent = t.calcBtn;
+    clearBtn.textContent = t.clearBtn;
+    document.getElementById("t-disclaimer").textContent = t.disclaimer;
+
+    document.getElementById("p1").textContent = t.presets[0];
+    document.getElementById("p2").textContent = t.presets[1];
+    document.getElementById("p3").textContent = t.presets[2];
+    document.getElementById("p4").textContent = t.presets[3];
+  }
+
+  function getSpectrumPercent(bmi) {
+    // 10 to 40 scale mapped to 0% - 100%
+    if (bmi <= 10) return 2;
+    if (bmi >= 40) return 98;
+    return Math.round(((bmi - 10) / (40 - 10)) * 100);
+  }
+
+  function renderResult() {
+    var t = TEXT[currentLang];
+    if (state.type === "init") {
+      resultBox.className = "";
+      resultBox.innerHTML = '<span class="empty">' + t.hint + '</span>';
+    } else if (state.type === "error") {
+      resultBox.className = "error";
+      resultBox.textContent = state.errorType === "empty" ? t.errEmpty : t.errInvalid;
+    } else if (state.type === "result") {
+      resultBox.className = "";
+      var d = state.resultData;
+      var pointerLeft = getSpectrumPercent(d.bmiVal);
+
+      var targetMsg = "";
+      if (d.categoryKey === "underweight") {
+        targetMsg = t.targetUnder(d.diffUnder);
+      } else if (d.categoryKey === "normal") {
+        targetMsg = t.targetNormal;
+      } else {
+        targetMsg = t.targetOver(d.diffOver);
+      }
+
+      var html =
+        '<div class="bmi-val">' + t.resultFormat(d.bmiStr) + '</div>' +
+        '<div class="bmi-cat">' + t.catFormat(d.categoryKey) + '</div>' +
+
+        '<div class="spectrum-wrap">' +
+          '<div class="spectrum-bar">' +
+            '<div class="spectrum-pointer" style="left: ' + pointerLeft + '%;"></div>' +
+          '</div>' +
+          '<div class="spectrum-labels">' +
+            '<span>' + t.spectrumLabels[0] + '</span>' +
+            '<span>' + t.spectrumLabels[1] + '</span>' +
+            '<span>' + t.spectrumLabels[2] + '</span>' +
+            '<span>' + t.spectrumLabels[3] + '</span>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="cards-grid">' +
+          '<div class="card">' +
+            '<div class="card-title">' + t.healthyRangeTitle + '</div>' +
+            '<div class="card-val">' + t.healthyRangeFormat(d.minHealthy, d.maxHealthy) + '</div>' +
+          '</div>' +
+          '<div class="card">' +
+            '<div class="card-title">' + t.waterTitle + '</div>' +
+            '<div class="card-val">' + t.waterFormat(d.minWater, d.maxWater) + '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="card" style="margin-bottom: 10px;">' +
+          '<div class="card-title">' + t.targetWeightTitle + '</div>' +
+          '<div class="card-val" style="font-size: 0.95rem;">' + targetMsg + '</div>' +
+        '</div>' +
+
+        '<div class="action-tip">' +
+          '<strong>' + t.tipsTitle + '：</strong>' + t.tips[d.categoryKey] +
+        '</div>' +
+
+        '<div class="action-row">' +
+          '<button type="button" id="copy-btn">' + t.copyBtn + '</button>' +
+          '<button type="button" id="print-btn">' + t.printBtn + '</button>' +
+          '<span class="toast" id="copy-toast">' + t.copiedNotice + '</span>' +
+        '</div>';
+
+      resultBox.innerHTML = html;
+
+      document.getElementById("copy-btn").addEventListener("click", function () {
+        var textToCopy =
+          t.title + "\n" +
+          t.heightLabel + ": " + d.height + " cm\n" +
+          t.weightLabel + ": " + d.weight + " kg\n" +
+          t.resultFormat(d.bmiStr) + "\n" +
+          t.catFormat(d.categoryKey) + "\n" +
+          t.healthyRangeTitle + ": " + t.healthyRangeFormat(d.minHealthy, d.maxHealthy) + "\n" +
+          t.targetWeightTitle + ": " + targetMsg + "\n" +
+          t.waterTitle + ": " + t.waterFormat(d.minWater, d.maxWater);
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(textToCopy).then(showToast);
+        } else {
+          showToast();
+        }
+      });
+
+      document.getElementById("print-btn").addEventListener("click", function () {
+        window.print();
+      });
+    }
+  }
+
+  function showToast() {
+    var toast = document.getElementById("copy-toast");
+    if (toast) {
+      toast.classList.add("show");
+      setTimeout(function () { toast.classList.remove("show"); }, 2000);
+    }
+  }
+
+  function calculateBMI() {
+    var heightRaw = heightInput.value.trim();
+    var weightRaw = weightInput.value.trim();
+
+    if (heightRaw === "" || weightRaw === "") {
+      state = { type: "error", errorType: "empty", resultData: null };
+      renderResult();
+      return;
+    }
+
+    var height = Number(heightRaw);
+    var weight = Number(weightRaw);
+
+    if (isNaN(height) || isNaN(weight) || height < 50 || height > 300 || weight < 10 || weight > 300) {
+      state = { type: "error", errorType: "invalid", resultData: null };
+      renderResult();
+      return;
+    }
+
+    var heightM = height / 100;
+    var rawBmi = weight / (heightM * heightM);
+    var bmiStr = rawBmi.toFixed(1);
+    var bmiVal = parseFloat(bmiStr);
+
+    var categoryKey = "";
+    if (bmiVal < 18.5) {
+      categoryKey = "underweight";
+    } else if (bmiVal <= 24.9) {
+      categoryKey = "normal";
+    } else if (bmiVal <= 29.9) {
+      categoryKey = "overweight";
+    } else {
+      categoryKey = "obese";
+    }
+
+    var minHealthyNum = 18.5 * heightM * heightM;
+    var maxHealthyNum = 24.9 * heightM * heightM;
+    var minHealthy = minHealthyNum.toFixed(1);
+    var maxHealthy = maxHealthyNum.toFixed(1);
+
+    var diffUnder = (minHealthyNum - weight).toFixed(1);
+    var diffOver = (weight - maxHealthyNum).toFixed(1);
+
+    var minWater = Math.round(weight * 30);
+    var maxWater = Math.round(weight * 35);
+
+    state = {
+      type: "result",
+      errorType: null,
+      resultData: {
+        height: height,
+        weight: weight,
+        bmiStr: bmiStr,
+        bmiVal: bmiVal,
+        categoryKey: categoryKey,
+        minHealthy: minHealthy,
+        maxHealthy: maxHealthy,
+        diffUnder: diffUnder,
+        diffOver: diffOver,
+        minWater: minWater,
+        maxWater: maxWater
+      }
+    };
+    renderResult();
+  }
+
+  function clearForm() {
+    heightInput.value = "";
+    weightInput.value = "";
+    state = { type: "init", errorType: null, resultData: null };
+    renderResult();
+  }
+
+  function toggleLanguage() {
+    currentLang = currentLang === "zh-TW" ? "en" : "zh-TW";
+    applyLanguage();
+    renderResult();
+  }
+
+  calcBtn.addEventListener("click", calculateBMI);
+  clearBtn.addEventListener("click", clearForm);
+  langBtn.addEventListener("click", toggleLanguage);
+
+  document.querySelectorAll(".preset-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      heightInput.value = btn.getAttribute("data-h");
+      weightInput.value = btn.getAttribute("data-w");
+      calculateBMI();
+    });
+  });
+
+  heightInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") calculateBMI();
+  });
+  weightInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") calculateBMI();
+  });
+
+  applyLanguage();
+  renderResult();
+})();
+</script>
+</body>
+</html>
