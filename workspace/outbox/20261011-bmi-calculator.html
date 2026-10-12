@@ -1,0 +1,221 @@
+<!-- handoff: 完成單檔繁體中文 BMI 計算機，含完整數值計算、體位判定、邊界與型態驗證、健康體重範圍試算與清除功能 / 需使用現代瀏覽器開啟 / 可以直接使用 -->
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BMI 計算機</title>
+<style>
+  :root {
+    --ink: #16343b;
+    --muted: #526b70;
+    --sea: #087e8b;
+    --coral: #e76f51;
+    --line: #cbded9;
+    --paper: #fffdf8;
+    --wash: #edf7f3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    line-height: 1.5;
+  }
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin: 8px 0 16px;
+  }
+  .form-group {
+    margin-bottom: 14px;
+  }
+  label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  input[type="number"] {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+  }
+  input[type="number"]:focus {
+    outline: 2px solid var(--sea);
+    border-color: var(--sea);
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+  }
+  button {
+    font: inherit;
+    border-radius: 8px;
+    border: 1px solid var(--sea);
+    background: #fff;
+    color: var(--sea);
+    padding: 8px 18px;
+    cursor: pointer;
+  }
+  button.primary {
+    background: var(--sea);
+    color: #fff;
+    font-weight: 700;
+  }
+  #result-box {
+    border: 2px solid var(--sea);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--wash);
+    margin-top: 16px;
+  }
+  #result-box.error {
+    border-color: var(--coral);
+    background: #fdf0ec;
+    color: var(--coral);
+    font-weight: 700;
+  }
+  .bmi-val {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .bmi-cat {
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+  }
+  .healthy-range {
+    font-size: 0.95rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .disclaimer {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 20px;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>BMI 計算機</h1>
+
+  <div class="form-group">
+    <label for="height">身高（公分）</label>
+    <input type="number" id="height" step="any" placeholder="例如：170">
+  </div>
+
+  <div class="form-group">
+    <label for="weight">體重（公斤）</label>
+    <input type="number" id="weight" step="any" placeholder="例如：65">
+  </div>
+
+  <div class="row">
+    <button type="button" class="primary" id="calculate">計算</button>
+    <button type="button" id="clear">清除</button>
+  </div>
+
+  <div id="result-box" style="display: none;" aria-live="polite"></div>
+
+  <p class="disclaimer">本工具僅供參考，不能取代專業醫療建議。</p>
+</main>
+
+<script>
+(function () {
+  var heightInput = document.getElementById("height");
+  var weightInput = document.getElementById("weight");
+  var calcBtn = document.getElementById("calculate");
+  var clearBtn = document.getElementById("clear");
+  var resultBox = document.getElementById("result-box");
+
+  function calculateBMI() {
+    var heightRaw = heightInput.value.trim();
+    var weightRaw = weightInput.value.trim();
+
+    // 檢查是否為空
+    if (heightRaw === "" || weightRaw === "") {
+      showError("請輸入身高與體重。");
+      return;
+    }
+
+    var height = Number(heightRaw);
+    var weight = Number(weightRaw);
+
+    // 檢查是否為正確數字且在指定範圍內
+    if (isNaN(height) || isNaN(weight) || height < 50 || height > 300 || weight < 10 || weight > 300) {
+      showError("請輸入正確的數字（50–300 公分的身高、10–300 公斤的體重）。");
+      return;
+    }
+
+    // 計算 BMI = 體重(kg) / 身高(m)^2
+    var heightM = height / 100;
+    var rawBmi = weight / (heightM * heightM);
+    var bmiStr = rawBmi.toFixed(1);
+    var bmiVal = parseFloat(bmiStr);
+
+    // 體位判定（WHO 切點）
+    var category = "";
+    if (bmiVal < 18.5) {
+      category = "過輕";
+    } else if (bmiVal <= 24.9) {
+      category = "正常";
+    } else if (bmiVal <= 29.9) {
+      category = "過重";
+    } else {
+      category = "肥胖";
+    }
+
+    // 計算健康體重範圍
+    var minHealthy = (18.5 * heightM * heightM).toFixed(1);
+    var maxHealthy = (24.9 * heightM * heightM).toFixed(1);
+
+    resultBox.className = "";
+    resultBox.style.display = "block";
+    resultBox.innerHTML =
+      '<div class="bmi-val">您的 BMI 為 ' + bmiStr + '</div>' +
+      '<div class="bmi-cat">體位：' + category + '</div>' +
+      '<div class="healthy-range">此身高的健康體重範圍：' + minHealthy + ' ～ ' + maxHealthy + ' 公斤</div>';
+  }
+
+  function showError(msg) {
+    resultBox.className = "error";
+    resultBox.style.display = "block";
+    resultBox.textContent = msg;
+  }
+
+  function clearForm() {
+    heightInput.value = "";
+    weightInput.value = "";
+    resultBox.className = "";
+    resultBox.style.display = "none";
+    resultBox.textContent = "";
+  }
+
+  calcBtn.addEventListener("click", calculateBMI);
+  clearBtn.addEventListener("click", clearForm);
+
+  // 支援 Enter 鍵送出計算
+  heightInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") calculateBMI();
+  });
+  weightInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") calculateBMI();
+  });
+})();
+</script>
+</body>
+</html>
